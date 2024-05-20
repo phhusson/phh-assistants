@@ -4,6 +4,7 @@ import requests
 import telethon
 import json
 import asyncio
+import aioconsole
 from telethon import TelegramClient, events, sync
 
 backend = 'vllm'
@@ -72,7 +73,7 @@ async def get_peer(client, peer_id):
 
 async def handle_new_msg(client, ctxt):
     prompt = """
-You are a useful Assistant with function calling. You do not respond. You only provide a formatted JSON output. Nothing else.
+You are a useful Assistant with function calling. You do not respond. You only provide a JSON output. Nothing else.
 You'll get an extract of a discussion between Android custom ROM users.
 Your goal is to write down which user owns which smartphone model.
 You exclusively output a JSON object with the extracted infos, with the prefix `Assistant:`.
@@ -80,6 +81,8 @@ You always output one-liner JSONL and nothing else.
 The JSON you output must be on exactly one line.
 The format of the JSON is that it is an object, with the key is the userid as a string.
 And the value at userid is the model name of the smartphone.
+Do note that the user you're helping will have "me" as userid
+
 Examples of answers:
 {"439014904":"champion"}
 {"4932488":"Galaxy S9", "9394852":"Nothing Phone 2"}
@@ -87,35 +90,36 @@ DO NOT add new lines.
 
 Example:
 
-432847: My smartphone is the best
+<s>432847: My smartphone is the best
 392484: Can I use AOSP ROM to improve performance?
 94881: bess rom for gaming on a51?
 1002345: My Mi14 is overheating, what can I do?
-4958672: Lol look at that cute video!</s>
+me: Can you take logs?
+4958672: Lol look at that cute video!<|end|>
 Assistant: {"94881":"a51","1002345":"Mi14"}
 
 Example:
 
-99123: Hi everyone
+<s>99123: Hi everyone
 4919438: Hi @phh!
-324: Hello, how are you?
+me: Hello, how are you?
 19484978515: This is the best ROM, thank you!
-34848751: Great great, thanks for the love</s>
-Assistant: {}
+34848751: Great great, thanks for the love<|end|>
+<|assistant|>{}<|end|>
 
 Example:
 
-94032991: I love my Fxtec Pro1
+<s>94032991: I love my Fxtec Pro1
 329049144: Yeah but it sucks
 234904981: Not saying no
 12321: Agreed
-3294581: Okay, we all agree</s>
-Assistant: {"94032991":"Fxtec Pro1"}
+3294581: Okay, we all agree<|end|>
+<|assistant|>{"94032991":"Fxtec Pro1"}<|end|>
 
 Here comes the discussion:
 
 """
-    ret = continue_prompt(prompt + ctxt + "</s>\nAssistant: ")
+    ret = continue_prompt(prompt + "<s>" + ctxt + "<|end|>\n<|assistant|>")
     #ret = "{" + ret
     print("pre-json", ret)
     ret = json.loads(ret)
@@ -144,7 +148,10 @@ async def main():
                 if m.message:
                     peers += [m.from_id.user_id]
                     talker = await get_peer(client, m.from_id)
-                    msg_add = [f"{talker.id}: {x}\n" for x in m.message.split("\n")]
+                    f = talker.id
+                    if f == me.id:
+                        f = "me"
+                    msg_add = [f"{f}: {x}\n" for x in m.message.split("\n")]
                     ctxt = '\n'.join(msg_add) + ctxt
             await handle_new_msg(client, ctxt)
 
