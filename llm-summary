@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -e
+
+f=$(mktemp)
+cleanup() {
+    rm -f "$f"
+}
+trap cleanup EXIT
+
+msg=$((echo "<s><|user|>Please make a one-sentence summary of the following text:"; cat "$1";echo '<|end|><|assistant|>') | jq -R --slurp .)
+
+cat > $f << EOF
+{
+        "model":"microsoft/Phi-3-mini-128k-instruct",
+        "prompt": $msg,
+        "max_tokens": 1024,
+        "temperature": 0
+}
+EOF
+
+# Launch vllm with python -m vllm.entrypoints.openai.api_server --model microsoft/Phi-3-mini-128k-instruct --dtype auto --trust-remote-code --gpu-memory-utilization 0.85 --max-model-len 25000
+curl --silent http://localhost:8000/v1/completions \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d @$f |jq -r '.choices[0].text'

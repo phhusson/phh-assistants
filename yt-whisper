@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+
+d=$(mktemp -d)
+cleanup() {
+    rm -Rf $d
+}
+
+trap cleanup EXIT
+yt-dlp --no-warnings --quiet --audio-format opus -x -o "$d"/hello.opus "$1"
+ffmpeg -y -loglevel fatal -i "$d"/hello.opus -ar 16000 -ac 1 "$d"/hello.wav
+rm -f "$d/hello.opus"
+# Will output to "$d/hello.txt"
+# We can't shut whisper.cpp's main up with parameters as it writes to stderr and stdout, so just redirect it all and pray that error code is okay
+if ! /home/phh/ML/whisper.cpp/build/bin/main -m /home/phh/ML/whisper.cpp/models/ggml-large-v3-q5_0.bin -f "$d/hello.wav" -np -otxt -of "$d/hello"  > /dev/null 2>&1;then
+    echo "Whisper call failed"
+    exit 1
+fi
+
+cat "$d/hello.txt" |tr -d '\n' |sed -E -e 's/\./\.\n/g' |sponge "$d/hello.txt"
+
+echo Full transcript
+cat "$d/hello.txt"
+
+echo Summary:
+llm-summary "$d/hello.txt"
