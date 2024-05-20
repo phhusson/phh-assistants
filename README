@@ -18,3 +18,7 @@ And it will output the transcript video, and a one sentence summary of the video
 llm-summary usage is to give it a text file:
 `llm-summary hello.txt`
 This will make a summary of that text file in one sentence
+
+
+tg-run listens on communication on my Android ROM telegram groups, and tries to remember who has which device.
+It is far from reliable, but it's good enough for my usage. I run it in yakuake, so I just press F12 to find out who in the recent discussion runs which device
