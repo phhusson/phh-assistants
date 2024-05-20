@@ -122,26 +122,96 @@ Here comes the discussion:
     ret = continue_prompt(prompt + "<s>" + ctxt + "<|end|>\n<|assistant|>")
     #ret = "{" + ret
     print("pre-json", ret)
-    ret = json.loads(ret)
-    for k in ret:
-        v = ret[k]
-        if isinstance(v, list):
-            v = v[0]
-        if not k in devices:
-            devices[k] = set()
-        print(f"Adding {ret[k]} for {k}") 
-        devices[k].add(ret[k])
-    print(devices)
+    try:
+        ret = json.loads(ret)
+        for k in ret:
+            v = ret[k]
+            if isinstance(v, list):
+                v = v[0]
+            if not k in users:
+                users[k] = {}
+            if not 'devices' in users[k]:
+                users[k]['devices'] = set()
+            print(f"Adding {ret[k]} for {k}") 
+            users[k]['devices'].add(ret[k])
+    except:
+        print("Failed parsing json")
+
+last_conversation = ""
+async def repl(client):
+    global last_conversation
+    prompt = """
+You are a helpful Assistant to User with function calling. You never directly respond. You only provide a JSON as output. Nothing else.
+User is an Android custom ROM developer.
+You'll get an extract of the current discussion the user is engaging in.
+You'll also receive a request from the User. Do what the user is requesting you.
+
+Here are the functions you can call:
+- `say`. You can ask/say something to the user. Example: {"function":"say","message":"What a nice day"}
+- `attach_note_to_user`. You can attach a note to a user id. Example: {"function":"attach_note_to_user","note":"This user received a test image to work-around BPF on Linux 4.14","user_id":"439014904"}
+- `infos_from_user`. Retrieve all infos from a user id. Example: {"function":"infos_from_user","user_id":"4932488"}
+
+Example:
+432847: My smartphone is the best
+392484: Can I use AOSP ROM to improve performance?
+1002345: My Mi14 is overheating, what can I do?
+94881: bess rom for gaming on a51?
+<s><|user|>Please note that this mi14 is cursed<|end|>
+<|assistant|>{"function":"attach_note_to_user","note":"Cursed mi14","user_id":"1002345"}<|end|>
+
+Anoter example:
+99123: Hi everyone
+4919438: Hi @phh!
+me: Hello, how are you?
+19484978515: This is the best ROM, thank you!
+me: Great great, thanks for the love
+<s><|user|>Remind me that this user thanked me without being annoying<|end|>
+<|assistant|>{"function":"attach_note_to_user","note":"Thanked me without being annoying","user_id":"19484978515"}<|end|>
+
+Here comes the discussion:
+"""
+    while True:
+        line = await aioconsole.ainput("> ")
+        line = line.strip().rstrip()
+        if not line:
+            continue
+        ret = continue_prompt(prompt + last_conversation + "<s><|user|>" + line + "<|end|>\n<|assistant|>")
+        try:
+            nextCall = json.loads(ret)
+            if not 'function' in nextCall:
+                print("Invalid JSON, no function field", nextCall)
+                continue
+            if nextCall['function'] == 'attach_note_to_user':
+                if not 'user_id' in nextCall:
+                    print("attach_note_to_user missing required parameter `user_id`")
+                    continue
+                if not 'note' in nextCall:
+                    print("attach_note_to_user missing required parameter `note`")
+                    continue
+                uid = nextCall['user_id']
+                if not uid in users:
+                    users[uid] = {}
+                if not 'notes' in users[uid]:
+                    users[uid]['notes'] = []
+                users[uid]['notes'] += [nextCall['note']]
+
+                person = await get_peer(client, telethon.tl.types.PeerUser(int(uid)))
+                print(f"{person.username} {person.first_name} {person.last_name}: {users[uid]}")
+        except Exception as e:
+            print("Failed executing JSON", e)
+            print("Stacktrace:", exc_info())
 
 async def main():
     async with telethon.TelegramClient('session_name', api_id, api_hash) as client:
         me = await client.get_me()
+        asyncio.create_task(repl(client))
         print("I am", me)
         # 1344234045 = phhtreble
         # 1345606564 = treblewars
         # 4249313609 = stupid group
         @client.on(events.NewMessage(chats=[1344234045, 1345606564, 4249313609]))
         async def new_msg(event):
+            global last_conversation
             ctxt = ""
             peers = []
             async for m in client.iter_messages(event.message.peer_id, limit = 10):
@@ -153,13 +223,14 @@ async def main():
                         f = "me"
                     msg_add = [f"{f}: {x}\n" for x in m.message.split("\n")]
                     ctxt = '\n'.join(msg_add) + ctxt
+            last_conversation = ctxt
             await handle_new_msg(client, ctxt)
 
             peers = set(peers)
             for peer in peers:
                 talker = await get_peer(client, telethon.tl.types.PeerUser(peer))
-                if str(peer) in devices:
-                    v = devices[str(peer)]
+                if str(peer) in users:
+                    v = users[str(peer)]
                     print(f"{talker.username} {talker.first_name} {talker.last_name}: {v}")
 
         await client.run_until_disconnected()
