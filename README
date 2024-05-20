@@ -1,0 +1,20 @@
+I'm a heavy terminal user and I do almost everything from within a terminal. I'm much more agile with a keyboard than a mouse, hence terminal being a good tool.
+I also have a local RTX3090. So well, I just plug LLM stuff into my RTX3090.
+
+This repository contains tools helping me in my day to day. Either as a random person, as an Android ROM developer or for my other occupations ¯\_(ツ)_/¯
+
+Globally those scripts assume that you have a locally running vllm running Phi3:
+`python -m vllm.entrypoints.openai.api_server --model microsoft/Phi-3-mini-128k-instruct --dtype auto --trust-remote-code --gpu-memory-utilization 0.85 --max-model-len 25000`
+
+In my experience, unquantized Phi3 is a marvelous model for its size and handles simple requests quite reliably.
+
+Usage:
+Copy llm-summary and yt-whisper to your ~/.local/bin, make them executable run VLLM, change VLLM host if needed.
+
+Then do yt-whisper <some youtube url> like:
+`yt-whisper https://pastebin.com/gMCGyNvw`
+And it will output the transcript video, and a one sentence summary of the video
+
+llm-summary usage is to give it a text file:
+`llm-summary hello.txt`
+This will make a summary of that text file in one sentence
