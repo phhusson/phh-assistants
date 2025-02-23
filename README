@@ -20,5 +20,28 @@ llm-summary usage is to give it a text file:
 This will make a summary of that text file in one sentence
 
 
-tg-run listens on communication on my Android ROM telegram groups, and tries to remember who has which device.
+tg-run is a telegram userbot listens on communication on my Android ROM telegram groups, and tries to remember who has which device.
 It is far from reliable, but it's good enough for my usage. I run it in yakuake, so I just press F12 to find out who in the recent discussion runs which device
+
+
+== tg-sumarizer
+
+tg-summarizer is a telegram bot to summarize URLs it sees. It has three modes:
+- mentioned_txt_summary : When mentioned with an URL, it'll reply with the summary of that URL
+- txt_summary: When an URL is posted, it'll reply with a summary
+- txt_question: When mentioned in reply of an URL, it'll answer the question based on that URL
+
+It uses a config.py with the following syntax:
+```python
+api_id = # a number
+api_hash = # an hex string
+bot =  # A string with number then : base64
+
+features = {
+    "XXXXXXXXXX" : { "mentioned_txt_summary": True, "txt_question": True},
+    "YYYYYYYYYY": { "txt_summary": True, "txt_question": True },
+}
+```
+
+Where XXXXXXXXXX and YYYYYYYYYY are channel id
+
