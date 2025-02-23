@@ -21,13 +21,19 @@ async def http_get(url):
     try:
         if 'mafreebox' in url:
             return None
+        mynet = ipaddress.ip_network('2a01:e0a:137::/48', strict=False)
         # Parse the url to get the hostname
         url_parsed = urllib.parse.urlparse(url)
         ip = await aiohttp.resolver.DefaultResolver().resolve(url_parsed.netloc)
         for i in ip:
-            if ipaddress.ip_address(i['host']).is_private:
+            j = ipaddress.ip_address(i['host'])
+            if j.is_private:
                 print("IP is private, aborting")
                 return
+            if j in mynet:
+                print("IP is in my network, aborting")
+                return
+
     except Exception as e:
         print("Failed resolving", url, e)
         return None
