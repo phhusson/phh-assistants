@@ -10,9 +10,30 @@ import os
 import re
 import readability
 import aiohttp
+import ipaddress
+import urllib.parse
 from config import features, api_id, api_hash, bot
 
 backend = 'llamacpp'
+
+# This function does like the requests.get, but async with aiohttp, and does hostname resolution to ensure the IP isn't private
+async def http_get(url):
+    try:
+        if 'mafreebox' in url:
+            return None
+        # Parse the url to get the hostname
+        url_parsed = urllib.parse.urlparse(url)
+        ip = await aiohttp.resolver.DefaultResolver().resolve(url_parsed.netloc)
+        for i in ip:
+            if ipaddress.ip_address(i['host']).is_private:
+                print("IP is private, aborting")
+                return
+    except Exception as e:
+        print("Failed resolving", url, e)
+        return None
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.text()
 
 async def llamacpp_complete(txt):
     data = {
@@ -164,9 +185,7 @@ async def txt_question(client, event, url, msg):
     print("Question is", msg)
 
     await aprint("Retrieving article from", url)
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            article = await response.text()
+    article = await http_get(url)
     await aprint("Got it")
     doc = readability.Document(article)
     await aprint("Got its readability variant, title is", doc.title())
@@ -231,9 +250,7 @@ async def txt_summary(client, event, msg):
         return
 
     await aprint("Retrieving article from", url)
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            article = await response.text()
+    article = await http_get(url)
     await aprint("Got it")
     doc = readability.Document(article)
     await aprint("Got its readability variant, title is", doc.title())
